@@ -1,6 +1,10 @@
 # live-chat
 這是一個具有終端風格界面的即時聊天應用，使用 Flask、Socket.IO、Redis
 
+# SHOW
+![image](https://github.com/user-attachments/assets/c9e12b8b-f647-43e1-b38a-b797a0db25cd)
+
+
 ## 功能特點
 
 - 簡單部屬與基本資安防護
