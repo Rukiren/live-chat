@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Set Username</title>
+    <style>
+        body {
+            background-color: #000;
+            color: #0f0;
+            font-family: monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            border: 1px solid #0f0;
+            padding: 20px;
+            text-align: center;
+        }
+        input {
+            background-color: #000;
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 5px;
+            margin-top: 10px;
+        }
+        button {
+            background-color: #0f0;
+            color: #000;
+            border: none;
+            padding: 5px 10px;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Welcome to Terminal Chat</h1>
+        <p>Please enter a username to continue:</p>
+        <input type="text" id="username-input" placeholder="Enter username">
+        <br>
+        <button onclick="setUsername()">Set Username</button>
+    </div>
+
+    <script>
+        function setUsername() {
+            const usernameInput = document.getElementById('username-input');
+            const username = usernameInput.value.trim();
+            if (username) {
+                localStorage.setItem('chatUsername', username);
+                window.location.href = '/';
+            } else {
+                alert('Please enter a valid username.');
+            }
+        }
+
+        // Check if username already exists
+        if (localStorage.getItem('chatUsername')) {
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>
