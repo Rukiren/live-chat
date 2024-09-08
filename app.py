@@ -18,16 +18,17 @@ def index():
 def username():
     return render_template('username.html')
 
-def save_message(room, username, content, is_private=False):
+def save_message(room, username, content, is_private=False, recipient=None):
     timestamp = datetime.now()
     message = {
         'username': username,
         'content': content,
         'timestamp': timestamp.isoformat(),
-        'type': 'private' if is_private else 'public'
+        'type': 'private' if is_private else 'public',
+        'recipient': recipient
     }
     rooms[room]['messages'].append(message)
-    
+
     # Remove messages older than 2 days
     two_days_ago = timestamp - timedelta(days=2)
     rooms[room]['messages'] = [msg for msg in rooms[room]['messages'] if datetime.fromisoformat(msg['timestamp']) > two_days_ago]
@@ -61,88 +62,38 @@ def handle_login(data):
     rooms[room]['users'].add(username)
     emit('system_message', {'content': f'{username} has joined the chat.'}, room=room)
     emit('update_user_list', list(rooms[room]['users']), room=room)
-    
-    # Send last 2 days of messages
-    recent_messages = get_recent_messages(room)
-    emit('load_history', recent_messages)
+    emit('load_history', rooms[room]['messages'], room=request.sid)
 
 @socketio.on('chat_message')
-def handle_message(data):
-    username = session.get('username', 'Anonymous')
+def handle_chat_message(data):
     room = session.get('room', 'general')
+    username = session['username']
     content = data['content']
+    
+    # 普通消息，廣播給所有人
     save_message(room, username, content)
-    emit('chat_message', {
-        'username': username,
-        'content': content,
-        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    }, room=room)
+    emit('chat_message', {'username': username, 'content': content, 'timestamp': datetime.now().isoformat()}, room=room)
 
 @socketio.on('private_message')
 def handle_private_message(data):
-    sender = session.get('username', 'Anonymous')
-    recipient = data['recipient']
-    content = data['content']
     room = session.get('room', 'general')
-    save_message(room, sender, content, is_private=True)
-    
-    recipient_sid = next((sid for sid, name in users.items() if name == recipient), None)
-    if recipient_sid:
-        emit('private_message', {
-            'username': sender,
-            'content': content,
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }, room=recipient_sid)
+    username = session['username']
+    content = data['content']
+    recipient = data.get('recipient')  # 指定接收者
+
+    if recipient:
+        # 確認接收者在線
+        recipient_sid = [sid for sid, user in users.items() if user == recipient]
+        if recipient_sid:
+            # 保存並發送私訊，僅給接收者與自己
+            save_message(room, username, content, is_private=True, recipient=recipient)
+            emit('private_message', {'username': username, 'content': content, 'timestamp': datetime.now().isoformat()}, room=recipient_sid[0])
+            emit('private_message', {'username': username, 'content': content, 'timestamp': datetime.now().isoformat()}, room=request.sid)
+        else:
+            # 接收者不在線，通知發送者
+            emit('system_message', {'content': f'User {recipient} is not online.'}, room=request.sid)
     else:
-        emit('system_message', {'content': f'User {recipient} not found or offline.'}, room=request.sid)
-
-@socketio.on('join_room')
-def handle_join_room(data):
-    new_room = data['room']
-    old_room = session.get('room')
-    username = session.get('username')
-    
-    if old_room != new_room:
-        leave_room(old_room)
-        if username in rooms[old_room]['users']:
-            rooms[old_room]['users'].remove(username)
-        emit('system_message', {'content': f'{username} has left the room.'}, room=old_room)
-        emit('update_user_list', list(rooms[old_room]['users']), room=old_room)
-        
-        join_room(new_room)
-        if new_room not in rooms:
-            rooms[new_room] = {'users': set(), 'messages': []}
-        rooms[new_room]['users'].add(username)
-        session['room'] = new_room
-        emit('system_message', {'content': f'{username} has joined the room.'}, room=new_room)
-        emit('update_user_list', list(rooms[new_room]['users']), room=new_room)
-        
-        # Send recent messages history
-        recent_messages = get_recent_messages(new_room)
-        emit('load_history', recent_messages)
-
-@socketio.on('create_room')
-def handle_create_room(data):
-    new_room = data['room']
-    username = session.get('username')
-    if new_room not in rooms:
-        rooms[new_room] = {'users': set(), 'messages': []}
-        emit('room_list', list(rooms.keys()), broadcast=True)
-    
-    # Automatically join the newly created room
-    handle_join_room({'room': new_room})
-
-@socketio.on('get_rooms')
-def handle_get_rooms():
-    emit('room_list', list(rooms.keys()))
-
-def get_recent_messages(room):
-    two_days_ago = datetime.now() - timedelta(days=2)
-    return [msg for msg in rooms[room]['messages'] if datetime.fromisoformat(msg['timestamp']) > two_days_ago]
-
-def update_user_list(room):
-    users_in_room = list(rooms[room]['users'])
-    emit('update_user_list', users_in_room, room=room)
+        emit('system_message', {'content': 'Recipient not specified for private message.'}, room=request.sid)
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True)
+    socketio.run(app)

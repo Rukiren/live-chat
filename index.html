@@ -335,7 +335,6 @@
                 messagesDiv.appendChild(messageElement);
                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
             }
-
             function updateUserList(users) {
                 userList.innerHTML = '';
                 recipientSelect.innerHTML = '<option value="public">Public</option>';
@@ -367,13 +366,13 @@
             function sendMessage() {
                 const message = messageInput.value.trim();
                 const recipient = recipientSelect.value;
+
                 if (message) {
                     if (message.toLowerCase() === '/leave') {
                         leaveChat();
                     } else {
                         if (recipient !== 'public') {
                             socket.emit('private_message', { content: message, recipient: recipient });
-                            addPrivateMessage(`[${new Date().toLocaleTimeString()}] You to ${recipient} (private): ${message}`);
                         } else {
                             socket.emit('chat_message', { content: message });
                         }
@@ -426,9 +425,8 @@
             recipientSelect.addEventListener('change', function() {
                 const selectedUser = this.value;
                 if (selectedUser !== 'public') {
-                    startPrivateChat(selectedUser);
+                    messageInput.placeholder = `Type your message to ${selectedUser} or '/leave' to exit`;
                 } else {
-                    privateChatIndicator.style.display = 'none';
                     messageInput.placeholder = "Type your message or '/leave' to exit";
                 }
             });
