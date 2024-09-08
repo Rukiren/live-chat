@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terminal-style Chat</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        .main-container {
+            flex: 1;
+        }
+        #page-footer {
+            text-align: center;
+            padding: 10px;
+            background-color: #000;
+            color: #0f0;
+            border-top: 1px solid #0f0;
+        }
+        #page-footer a {
+            color: #0f0;
+            text-decoration: none;
+        }
+        #page-footer a:hover {
+            text-decoration: underline;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        html, body {
+            height: 100%;
+            font-family: monospace;
+        }
+        body {
+            background-color: #000;
+            color: #0f0;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+        }
+        .main-container {
+            display: flex;
+            flex-grow: 1;
+            margin-bottom: 10px;
+        }
+        #chat-container {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #0f0;
+            margin-right: 10px;
+        }
+        #chat-header {
+            padding: 5px 10px;
+            border-bottom: 1px solid #0f0;
+        }
+        #messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 10px;
+            scrollbar-width: thin;
+            scrollbar-color: #0f0 #000;
+        }
+        #messages::-webkit-scrollbar {
+            width: 8px;
+        }
+        #messages::-webkit-scrollbar-track {
+            background: #000;
+        }
+        #messages::-webkit-scrollbar-thumb {
+            background-color: #0f0;
+            border-radius: 4px;
+            border: 2px solid #000;
+        }
+        #sidebar {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #0f0;
+        }
+        #user-list-container, #room-list-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+        #user-list-container {
+            border-bottom: 1px solid #0f0;
+            max-height: 30vh; /* 限制最大高度 */
+            overflow-y: auto; /* 添加垂直滾動 */
+        }
+        #room-list li, #user-list li {
+            cursor: pointer;
+            padding: 2px 5px;
+        }
+        #room-list li:hover, #user-list li:hover {
+            background-color: #0f0;
+            color: #000;
+        }
+        #room-controls {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            border-top: 1px solid #0f0;
+        }
+        #new-room-input {
+            flex-grow: 1;
+            margin-right: 5px;
+        }
+        #create-room-button {
+            white-space: nowrap;
+        }
+        #input-container {
+            display: flex;
+            align-items: center;
+            border: 1px solid #0f0;
+            padding: 5px;
+            background-color: #000;
+        }
+        #message-input-container {
+            display: flex;
+            margin-bottom: 10px;
+        }
+        #prompt {
+            color: #0f0;
+            margin-right: 10px;
+        }
+        input, select, button {
+            background-color: #000;
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 5px;
+            font-family: monospace;
+        }
+        button {
+            cursor: pointer;
+        }
+        #message-input {
+            flex-grow: 1;
+            border: none;
+            outline: none;
+        }
+        #send-button {
+            background-color: #000;
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        #recipient-select {
+            background-color: #000;
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 5px;
+            margin: 0 10px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        #error-message {
+            color: red;
+            margin-top: 10px;
+        }
+        .system-message {
+            color: #ff0;
+        }
+        .private-message {
+            color: #f0f;
+        }
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+            }
+            #chat-container {
+                margin-right: 0;
+                margin-bottom: 10px;
+            }
+            #sidebar {
+                flex-direction: row;
+            }
+            #user-list-container {
+                border-bottom: none;
+                border-right: 1px solid #0f0;
+            }
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+</head>
+<body>
+    <div class="main-container">
+        <div id="chat-container">
+            <div id="chat-header">
+                Current Room: <span id="current-room">general</span>
+                <span id="private-chat-indicator" style="display: none;"> (Private Chat: <span id="private-chat-user"></span>)</span>
+            </div>
+            <div id="messages"></div>
+        </div>
+        <div id="sidebar">
+            <div id="user-list-container">
+                <h3>Online Users</h3>
+                <ul id="user-list"></ul>
+            </div>
+            <div id="room-list-container">
+                <h3>Available Rooms</h3>
+                <ul id="room-list"></ul>
+            </div>
+            <div id="room-controls">
+                <input type="text" id="new-room-input" placeholder="New room name">
+                <button id="create-room-button">Create Room</button>
+            </div>
+        </div>
+    </div>
+    <div id="input-container">
+        <span id="prompt">&gt;</span>
+        <input type="text" id="message-input" placeholder="Type your message or '/leave' to exit">
+        <select id="recipient-select">
+            <option value="public">Public</option>
+        </select>
+        <button id="send-button">&gt;</button>
+    </div>
+    <div id="error-message"></div>
+    <footer id="page-footer">
+        Powered by <a href="https://github.com/Rukiren/live-chat" target="_blank">Rukiren</a>
+    </footer>
+
+    <script>
+        const messagesDiv = document.getElementById('messages');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const errorMessage = document.getElementById('error-message');
+        const userList = document.getElementById('user-list');
+        const roomList = document.getElementById('room-list');
+        const newRoomInput = document.getElementById('new-room-input');
+        const createRoomButton = document.getElementById('create-room-button');
+        const currentRoomSpan = document.getElementById('current-room');
+        const privateChatIndicator = document.getElementById('private-chat-indicator');
+        const privateChatUser = document.getElementById('private-chat-user');
+        const recipientSelect = document.getElementById('recipient-select');
+        let socket;
+        let username = localStorage.getItem('chatUsername');
+        let currentRoom = 'general';
+        let privateMessageTarget = null;
+
+        if (!username) {
+            console.log('No username found, redirecting to username page');
+            window.location.href = '/username';
+        } else {
+            console.log('Username found:', username);
+            connectToChat();
+        }
+
+        function connectToChat() {
+            socket = io();
+
+            socket.on('connect', function() {
+                console.log("Connected to chat server");
+                addSystemMessage('Connected to chat server.');
+                socket.emit('login', { username: username, room: currentRoom });
+                socket.emit('get_rooms');
+            });
+
+            socket.on('system_message', function(message) {
+                addSystemMessage(message.content);
+            });
+
+            socket.on('chat_message', function(message) {
+                addMessage(`[${message.timestamp}] ${message.username}: ${message.content}`);
+            });
+
+            socket.on('private_message', function(message) {
+                addPrivateMessage(`[${message.timestamp}] ${message.username} (private): ${message.content}`);
+            });
+
+            socket.on('update_user_list', function(users) {
+                updateUserList(users);
+            });
+
+            socket.on('load_history', function(messages) {
+                messagesDiv.innerHTML = '';
+                messages.forEach(message => {
+                    if (message.type === 'private') {
+                        addPrivateMessage(`[${message.timestamp}] ${message.username} (private): ${message.content}`);
+                    } else {
+                        addMessage(`[${message.timestamp}] ${message.username}: ${message.content}`);
+                    }
+                });
+            });
+
+            socket.on('room_list', function(rooms) {
+                updateRoomList(rooms);
+            });
+
+            socket.on('connect_error', function(error) {
+                console.error('Connection Error:', error);
+                errorMessage.textContent = 'Error connecting to chat server. Please try refreshing the page.';
+            });
+
+            socket.on('disconnect', function() {
+                console.log('Disconnected from chat server');
+                errorMessage.textContent = 'Disconnected from chat server. Please try refreshing the page.';
+            });
+
+            function addMessage(text) {
+                let messageElement = document.createElement('div');
+                messageElement.textContent = text;
+                messagesDiv.appendChild(messageElement);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }
+
+            function addSystemMessage(text) {
+                let messageElement = document.createElement('div');
+                messageElement.textContent = text;
+                messageElement.classList.add('system-message');
+                messagesDiv.appendChild(messageElement);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }
+
+            function addPrivateMessage(text) {
+                let messageElement = document.createElement('div');
+                messageElement.textContent = text;
+                messageElement.classList.add('private-message');
+                messagesDiv.appendChild(messageElement);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }
+
+            function updateUserList(users) {
+                userList.innerHTML = '';
+                recipientSelect.innerHTML = '<option value="public">Public</option>';
+                users.forEach(user => {
+                    if (user !== username) {
+                        let li = document.createElement('li');
+                        li.textContent = user;
+                        li.addEventListener('click', () => startPrivateChat(user));
+                        userList.appendChild(li);
+
+                        let option = document.createElement('option');
+                        option.value = user;
+                        option.textContent = user;
+                        recipientSelect.appendChild(option);
+                    }
+                });
+            }
+
+            function updateRoomList(rooms) {
+                roomList.innerHTML = '';
+                rooms.forEach(room => {
+                    let li = document.createElement('li');
+                    li.textContent = room;
+                    li.addEventListener('click', () => joinRoom(room));
+                    roomList.appendChild(li);
+                });
+            }
+
+            function sendMessage() {
+                const message = messageInput.value.trim();
+                const recipient = recipientSelect.value;
+                if (message) {
+                    if (message.toLowerCase() === '/leave') {
+                        leaveChat();
+                    } else {
+                        if (recipient !== 'public') {
+                            socket.emit('private_message', { content: message, recipient: recipient });
+                            addPrivateMessage(`[${new Date().toLocaleTimeString()}] You to ${recipient} (private): ${message}`);
+                        } else {
+                            socket.emit('chat_message', { content: message });
+                        }
+                    }
+                    messageInput.value = '';
+                }
+            }
+
+            function leaveChat() {
+                socket.disconnect();
+                localStorage.removeItem('chatUsername');
+                window.location.href = '/username';
+            }
+
+            function joinRoom(roomName) {
+                if (roomName && roomName !== currentRoom) {
+                    currentRoom = roomName;
+                    socket.emit('join_room', { room: roomName });
+                    currentRoomSpan.textContent = currentRoom;
+                    privateMessageTarget = null;
+                    privateChatIndicator.style.display = 'none';
+                    recipientSelect.value = 'public';
+                }
+            }
+
+            function createRoom() {
+                const newRoomName = newRoomInput.value.trim();
+                if (newRoomName) {
+                    socket.emit('create_room', { room: newRoomName });
+                    newRoomInput.value = '';
+                }
+            }
+
+            function startPrivateChat(user) {
+                recipientSelect.value = user;
+                privateChatIndicator.style.display = 'inline';
+                privateChatUser.textContent = user;
+                messageInput.placeholder = `Type your message to ${user} or '/leave' to exit`;
+            }
+
+            messageInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+
+            sendButton.addEventListener('click', sendMessage);
+            createRoomButton.addEventListener('click', createRoom);
+
+            recipientSelect.addEventListener('change', function() {
+                const selectedUser = this.value;
+                if (selectedUser !== 'public') {
+                    startPrivateChat(selectedUser);
+                } else {
+                    privateChatIndicator.style.display = 'none';
+                    messageInput.placeholder = "Type your message or '/leave' to exit";
+                }
+            });
+        }
+    </script>
+</body>
+</html>
