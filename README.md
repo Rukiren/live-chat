@@ -1,5 +1,5 @@
 # live-chat
-這是一個具有終端風格界面的即時聊天應用，使用 Flask、Socket.IO、Redis
+這是一個具有終端風格界面的即時聊天應用，使用 Flask、Socket.IO
 
 # SHOW
 ![image](https://github.com/user-attachments/assets/c9e12b8b-f647-43e1-b38a-b797a0db25cd)
@@ -19,7 +19,6 @@
 ## 啟動服務器
 1.開啟伺服器
    ```
-   redis-server
    python app.py
    ```
 2. 打開網頁瀏覽器並訪問 `http://localhost:5000`
