@@ -41,7 +41,7 @@
     <div class="container">
         <h1>Welcome to Terminal Chat</h1>
         <p>Please enter a username to continue:</p>
-        <input type="text" id="username-input" placeholder="Enter username">
+        <input type="text" id="username-input" placeholder="Enter username" onkeydown="handleEnter(event)">
         <br>
         <button onclick="setUsername()">Set Username</button>
     </div>
@@ -55,6 +55,12 @@
                 window.location.href = '/';
             } else {
                 alert('Please enter a valid username.');
+            }
+        }
+
+        function handleEnter(event) {
+            if (event.key === 'Enter') {
+                setUsername();
             }
         }
 
